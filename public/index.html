@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merey Beauty Studio</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Montserrat:wght@400;500;600&display=swap&subset=cyrillic">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap" id="app"><p style="text-align:center;padding:80px 0">Жүктелуде…</p></div>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dg=s=>String(s).replace(/\D/g,'');
+fetch('/api/content').then(r=>r.json()).then(({settings:S,services,reviews})=>{
+  document.title=S.name;
+  document.getElementById('app').innerHTML=`
+  <div class="hero"><h1>${esc(S.name)}</h1><p>${esc(S.tagline)}</p>
+   <a class="btn" href="https://wa.me/${dg(S.phone)}" target="_blank" rel="noopener">WhatsApp-қа жазылу</a>
+   <a class="btn ghost" href="tel:+${dg(S.phone)}">Қоңырау шалу</a></div>
+  <section><h2>Бағалар</h2><div class="card">${services.map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc(x.descr)}</small></div><div class="price">${esc(x.price)}</div></div>`).join('')}</div></section>
+  <section><h2>Пікірлер</h2><div class="grid">${reviews.map(r=>`<div class="rev"><div class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(5-r.stars)}</div><p>“${esc(r.text)}”</p><span>— ${esc(r.author)}</span></div>`).join('')}</div></section>
+  <section><h2>Байланыс</h2><div class="card info">
+   <p>📍 <b>${esc(S.address)}</b></p><p>🕒 ${esc(S.hours)}</p>
+   <p>📞 Менеджер: <a href="tel:+${dg(S.phone)}">${esc(S.phone)}</a></p>
+   ${S.instagram?`<p><a href="https://instagram.com/${encodeURIComponent(S.instagram.replace('@',''))}" target="_blank" rel="noopener">Instagram</a></p>`:''}
+   <p><a href="https://2gis.kz/search/${encodeURIComponent(S.address)}" target="_blank" rel="noopener">2GIS картасында ашу</a></p></div></section>
+  <footer>© ${esc(S.name)} · <a href="/admin">Админ</a></footer>`;
+}).catch(()=>{document.getElementById('app').innerHTML='<p style="text-align:center;padding:80px 0">Сайт жүктелмеді. Кейінірек қайталаңыз.</p>'});
+</script>
+</body>
+</html>

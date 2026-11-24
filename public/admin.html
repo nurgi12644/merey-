@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Админ панель</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Montserrat:wght@400;500;600&display=swap&subset=cyrillic">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap"><div class="pan" id="box"></div></div>
+<script>
+const $=id=>document.getElementById(id), box=$('box');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api=(u,m='GET',b)=>fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||'Қате'),{status:r.status});return j});
+let D;
+function loginView(err){
+  box.innerHTML=`<h2 style="text-align:left;font-size:26px">Админ кіру</h2><label>Логин</label><input id="lg" autocomplete="username" autofocus><label>Пароль</label><input type="password" id="pw" autocomplete="current-password">
+  <div class="bar"><button class="btn" id="go">Кіру</button><a class="btn ghost" href="/">Сайтқа</a></div><p id="msg">${esc(err||'')}</p>`;
+  const go=async()=>{try{await api('/api/login','POST',{login:$('lg').value,password:$('pw').value});start()}catch(e){$('msg').textContent=e.message}};
+  $('go').onclick=go;$('pw').onkeydown=e=>{if(e.key==='Enter')go()};
+}
+async function start(){
+  try{const m=await api('/api/me');if(!m.admin)return loginView();D=await api('/api/content');panel()}catch(e){loginView(e.message)}
+}
+function panel(){
+  const f=(k,l)=>`<label>${l}</label><input data-k="${k}" value="${esc(D.settings[k])}">`;
+  box.innerHTML=`<h2 style="text-align:left;font-size:26px">Админ панель</h2>
+  ${f('name','Студия аты')}${f('tagline','Қысқаша сипаттама')}${f('phone','Менеджер нөмірі')}${f('address','Мекенжай')}${f('hours','Жұмыс уақыты')}${f('instagram','Instagram (мысалы: merey.beauty)')}
+  <h3>Бағалар</h3><div id="sv"></div><button class="btn ghost" data-a="addsv" style="padding:8px 18px">+ Қызмет қосу</button>
+  <h3>Пікірлер</h3><div id="rv"></div>
+  <div class="er" style="grid-template-columns:1fr 90px"><input id="na" placeholder="Аты"><select id="ns"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></div>
+  <textarea id="nt" rows="2" placeholder="Пікір мәтіні"></textarea>
+  <button class="btn ghost" data-a="addrv" style="padding:8px 18px;margin-top:8px">+ Пікір қосу</button>
+  <div class="bar"><button class="btn" data-a="save">Сақтау</button><a class="btn ghost" href="/">Сайтты көру</a><button class="btn ghost" data-a="out">Шығу</button></div><p id="msg"></p>`;
+  lists();
+}
+function lists(){
+  $('sv').innerHTML=D.services.map((x,i)=>`<div class="er"><input data-s="${i}" data-f="name" value="${esc(x.name)}"><input data-s="${i}" data-f="price" value="${esc(x.price)}"><button class="x" data-del="s:${i}">×</button></div><input data-s="${i}" data-f="descr" value="${esc(x.descr)}" placeholder="Сипаттама">`).join('');
+  $('rv').innerHTML=D.reviews.map((r,i)=>`<div class="er rv"><span>${esc(r.author)} ${'★'.repeat(r.stars)}<br><small>${esc(r.text)}</small></span><button class="x" data-del="r:${i}">×</button></div>`).join('');
+}
+box.addEventListener('input',e=>{const t=e.target;if(t.dataset.k)D.settings[t.dataset.k]=t.value;else if(t.dataset.s!=null)D.services[+t.dataset.s][t.dataset.f]=t.value});
+box.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-a],[data-del]');if(!t)return;
+  if(t.dataset.del){const [w,i]=t.dataset.del.split(':');(w==='s'?D.services:D.reviews).splice(+i,1);return lists()}
+  const a=t.dataset.a;
+  if(a==='addsv'){D.services.push({name:'Жаңа қызмет',price:'0 ₸',descr:''});lists()}
+  if(a==='addrv'){const n=$('na').value.trim(),x=$('nt').value.trim();if(!n||!x)return;D.reviews.unshift({author:n,text:x,stars:+$('ns').value});$('na').value=$('nt').value='';lists()}
+  if(a==='out'){await api('/api/logout','POST');loginView()}
+  if(a==='save'){$('msg').textContent='Сақталуда…';try{await api('/api/content','PUT',D);$('msg').textContent='✅ Сақталды'}catch(err){if(err.status===401)loginView('Сессия аяқталды, қайта кіріңіз');else $('msg').textContent='Қате: '+err.message}}
+});
+start();
+</script>
+</body>
+</html>
