@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Админ панель</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Montserrat:wght@400;500;600&display=swap&subset=cyrillic">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap"><div class="pan" id="box"></div></div>
+<script>
+const $=id=>document.getElementById(id), box=$('box');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api=(u,m='GET',b)=>fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined}).then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(j.error||'Қате'),{status:r.status});return j});
+let D;
+const starOpts=v=>[5,4,3].map(n=>`<option value="${n}"${+v===n?' selected':''}>${n} ★</option>`).join('');
+function loginView(err){
+  box.innerHTML=`<h2 style="text-align:left;font-size:26px">Админ кіру</h2><label>Логин</label><input id="lg" autocomplete="username" autofocus><label>Пароль</label><input type="password" id="pw" autocomplete="current-password">
+  <div class="bar"><button class="btn" id="go">Кіру</button><a class="btn ghost" href="/">Сайтқа</a></div><p id="msg">${esc(err||'')}</p>`;
+  const go=async()=>{try{await api('/api/login','POST',{login:$('lg').value,password:$('pw').value});start()}catch(e){$('msg').textContent=e.message}};
+  $('go').onclick=go;$('pw').onkeydown=e=>{if(e.key==='Enter')go()};
+}
+async function start(){
+  try{const m=await api('/api/me');if(!m.admin)return loginView();D=await api('/api/content');panel()}catch(e){loginView(e.message)}
+}
+function panel(){
+  const f=(k,l)=>`<label>${l}</label><input data-k="${k}" value="${esc(D.settings[k])}">`;
+  box.innerHTML=`<h2 style="text-align:left;font-size:26px">Админ панель</h2>
+  ${f('name','Студия аты')}${f('tagline','Қысқаша сипаттама')}${f('phone','Менеджер нөмірі')}${f('address','Мекенжай')}${f('hours','Жұмыс уақыты')}${f('instagram','Instagram (мысалы: merey_beauty_studio)')}
+  <h3>Шеберлер және бағалар</h3><div id="ms"></div><button class="btn ghost" data-a="addms" style="padding:8px 18px">+ Шебер қосу</button>
+  <h3>Пікірлер</h3><div id="rv"></div>
+  <div class="er" style="grid-template-columns:1fr 100px"><input id="na" placeholder="Жаңа пікір: аты"><select id="ns">${starOpts(5)}</select></div>
+  <textarea id="nt" rows="2" placeholder="Пікір мәтіні"></textarea>
+  <button class="btn ghost" data-a="addrv" style="padding:8px 18px;margin-top:8px">+ Пікір қосу</button>
+  <div class="bar"><button class="btn" data-a="save">Сақтау</button><a class="btn ghost" href="/">Сайтты көру</a><button class="btn ghost" data-a="out">Шығу</button></div><p id="msg"></p>`;
+  lists();
+}
+function lists(){
+  $('ms').innerHTML=D.masters.map((m,mi)=>`<div class="mcard">
+   <div class="er"><input data-m="${mi}" data-f="name" value="${esc(m.name)}" placeholder="Шебер аты"><span></span><button class="x" data-del="m:${mi}" title="Шеберді өшіру">×</button></div>
+   ${m.items.map((x,i)=>`<div class="er"><input data-m="${mi}" data-i="${i}" data-f="name" value="${esc(x.name)}" placeholder="Қызмет"><input data-m="${mi}" data-i="${i}" data-f="price" value="${esc(x.price)}" placeholder="Бағасы"><button class="x" data-del="i:${mi}:${i}">×</button></div>`).join('')}
+   <button class="btn ghost" data-a="additem:${mi}" style="padding:6px 16px">+ Қызмет</button></div>`).join('');
+  $('rv').innerHTML=D.reviews.map((r,i)=>`<div class="rvc"><div class="er" style="grid-template-columns:1fr 100px auto"><input data-r="${i}" data-f="author" value="${esc(r.author)}"><select data-r="${i}" data-f="stars">${starOpts(r.stars)}</select><button class="x" data-del="r:${i}">×</button></div><textarea rows="2" data-r="${i}" data-f="text">${esc(r.text)}</textarea></div>`).join('');
+}
+box.addEventListener('input',e=>{
+  const t=e.target,d=t.dataset,v=t.value;
+  if(d.k)D.settings[d.k]=v;
+  else if(d.r!=null)D.reviews[+d.r][d.f]=d.f==='stars'?+v:v;
+  else if(d.m!=null){if(d.i!=null)D.masters[+d.m].items[+d.i][d.f]=v;else D.masters[+d.m][d.f]=v}
+});
+box.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-a],[data-del]');if(!t)return;
+  if(t.dataset.del){
+    const [w,a,b]=t.dataset.del.split(':');
+    if(w==='m'){if(!confirm('Шеберді барлық бағаларымен өшіресіз бе?'))return;D.masters.splice(+a,1)}
+    if(w==='i')D.masters[+a].items.splice(+b,1);
+    if(w==='r')D.reviews.splice(+a,1);
+    return lists();
+  }
+  const [a,arg]=t.dataset.a.split(':');
+  if(a==='addms'){D.masters.push({name:'Жаңа шебер',items:[{name:'Классика',price:'0 тг'}]});lists()}
+  if(a==='additem'){D.masters[+arg].items.push({name:'Жаңа қызмет',price:'0 тг'});lists()}
+  if(a==='addrv'){const n=$('na').value.trim(),x=$('nt').value.trim();if(!n||!x)return;D.reviews.unshift({author:n,text:x,stars:+$('ns').value});$('na').value=$('nt').value='';lists()}
+  if(a==='out'){await api('/api/logout','POST');loginView()}
+  if(a==='save'){$('msg').textContent='Сақталуда…';try{await api('/api/content','PUT',D);$('msg').textContent='✅ Сақталды'}catch(err){if(err.status===401)loginView('Сессия аяқталды, қайта кіріңіз');else $('msg').textContent='Қате: '+err.message}}
+});
+start();
+</script>
+</body>
+</html>
